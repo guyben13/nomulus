@@ -75,17 +75,23 @@ final class RdapNameserver extends RdapNamedObjectBase {
    * Handle is optional, but if given it MUST be the ROID.
    *
    * <p>We will set it always as it's important as a "self link".
+   *
+   * TODO(guyben): make non-optional (and remove override...)
    */
   @Override
   Optional<String> handle() {
     return Optional.of(hostResource.getRepoId());
   }
 
-
-  @JsonableElement("links[]") Link selfLink() {
+  /** Not required by the spec, but we like it. */
+  @JsonableElement("links[]")
+  Link selfLink() {
     return rdapJsonFormatter.makeSelfLink("nameserver", hostResource.getFullyQualifiedHostName());
   }
 
+  /**
+   * TODO(guyben): remove
+   */
   @Override
   ImmutableList<Link> links() {
     return ImmutableList.of();
@@ -97,6 +103,8 @@ final class RdapNameserver extends RdapNamedObjectBase {
    * <p>It isn't mentioned at all anywhere else. So we can just not put it at all?
    *
    * <p>To be safe, we'll put it on the "FULL" version anyway
+   *
+   * TODO(guyben): keep only in RdapNameserverFull
    */
   @Override
   ImmutableSet<RdapStatus> status() {
@@ -172,11 +180,17 @@ final class RdapNameserver extends RdapNamedObjectBase {
     return ImmutableList.of(RdapIcannStandardInformation.SUMMARY_DATA_REMARK);
   }
 
+  /**
+   * TODO(guyben): remove
+   */
   @Override
   ImmutableList<RdapEntity> entities() {
     return ImmutableList.of();
   }
 
+  /**
+   * TODO(guyben): remove
+   */
   @Override
   ImmutableList<Event> events() {
     return ImmutableList.of();
