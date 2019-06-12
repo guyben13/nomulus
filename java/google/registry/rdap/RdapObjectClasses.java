@@ -20,7 +20,6 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Ordering;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -200,9 +199,8 @@ final class RdapObjectClasses {
     @JsonableElement final ObjectClassName objectClassName;
 
     @JsonableElement abstract Optional<String> handle();
-    @JsonableElement abstract ImmutableList<PublicId> publicIds();
     @JsonableElement abstract ImmutableList<RdapEntity> entities();
-    @JsonableElement abstract ImmutableList<RdapStatus> status();
+    @JsonableElement abstract ImmutableSet<RdapStatus> status();
     @JsonableElement abstract ImmutableList<Remark> remarks();
     @JsonableElement abstract ImmutableList<Link> links();
     @JsonableElement abstract ImmutableList<Event> events();
@@ -227,7 +225,9 @@ final class RdapObjectClasses {
      * necessary.
      */
     @JsonableElement
-    abstract Optional<Port43WhoisServer> port43();
+    Optional<Port43WhoisServer> port43() {
+      return Optional.empty();
+    }
 
     RdapObjectBase(BoilerplateType boilerplateType, ObjectClassName objectClassName) {
       super(boilerplateType);
@@ -237,12 +237,10 @@ final class RdapObjectClasses {
 
     abstract static class Builder<B extends Builder<?>> {
       abstract B setHandle(String handle);
-      abstract ImmutableList.Builder<PublicId> publicIdsBuilder();
       abstract ImmutableList.Builder<RdapEntity> entitiesBuilder();
-      abstract ImmutableList.Builder<RdapStatus> statusBuilder();
+      abstract ImmutableSet.Builder<RdapStatus> statusBuilder();
       abstract ImmutableList.Builder<Remark> remarksBuilder();
       abstract ImmutableList.Builder<Link> linksBuilder();
-      abstract B setPort43(Port43WhoisServer port43);
       abstract ImmutableList.Builder<Event> eventsBuilder();
 
       abstract B setLastUpdateOfRdapDatabaseEvent(Event event);
@@ -314,12 +312,15 @@ final class RdapObjectClasses {
   @AutoValue
   abstract static class RdapRegistrarEntity extends RdapEntity {
 
+    @JsonableElement abstract ImmutableList<PublicId> publicIds();
+
     static Builder builder() {
       return new AutoValue_RdapObjectClasses_RdapRegistrarEntity.Builder();
     }
 
     @AutoValue.Builder
     abstract static class Builder extends RdapEntity.Builder<Builder> {
+      abstract ImmutableList.Builder<PublicId> publicIdsBuilder();
       abstract RdapRegistrarEntity build();
     }
   }
@@ -356,7 +357,7 @@ final class RdapObjectClasses {
    *
    * <p>Not part of the spec, but seems convenient.
    */
-  private abstract static class RdapNamedObjectBase extends RdapObjectBase {
+  abstract static class RdapNamedObjectBase extends RdapObjectBase {
 
     @JsonableElement abstract String ldhName();
 
@@ -382,50 +383,6 @@ final class RdapObjectClasses {
 
     RdapNamedObjectBase(BoilerplateType boilerplateType, ObjectClassName objectClassName) {
       super(boilerplateType, objectClassName);
-    }
-  }
-
-  /**
-   * The Nameserver Object Class defined in 5.2 of RFC7483.
-   */
-  @RestrictJsonNames({"nameservers[]", "nameserverSearchResults[]"})
-  @AutoValue
-  abstract static class RdapNameserver extends RdapNamedObjectBase {
-
-    @JsonableElement Optional<IpAddresses> ipAddresses() {
-      if (ipv6().isEmpty() && ipv4().isEmpty()) {
-        return Optional.empty();
-      }
-      return Optional.of(new IpAddresses());
-    }
-
-    abstract ImmutableList<String> ipv6();
-    abstract ImmutableList<String> ipv4();
-
-    class IpAddresses extends AbstractJsonableObject {
-      @JsonableElement ImmutableList<String> v6() {
-        return Ordering.natural().immutableSortedCopy(ipv6());
-      }
-
-      @JsonableElement ImmutableList<String> v4() {
-        return Ordering.natural().immutableSortedCopy(ipv4());
-      }
-    }
-
-    RdapNameserver() {
-      super(BoilerplateType.NAMESERVER, ObjectClassName.NAMESERVER);
-    }
-
-    static Builder builder() {
-      return new AutoValue_RdapObjectClasses_RdapNameserver.Builder();
-    }
-
-    @AutoValue.Builder
-    abstract static class Builder extends RdapNamedObjectBase.Builder<Builder> {
-      abstract ImmutableList.Builder<String> ipv6Builder();
-      abstract ImmutableList.Builder<String> ipv4Builder();
-
-      abstract RdapNameserver build();
     }
   }
 

@@ -25,7 +25,6 @@ import google.registry.rdap.RdapDataStructures.Notice;
 import google.registry.rdap.RdapObjectClasses.BoilerplateType;
 import google.registry.rdap.RdapObjectClasses.RdapDomain;
 import google.registry.rdap.RdapObjectClasses.RdapEntity;
-import google.registry.rdap.RdapObjectClasses.RdapNameserver;
 import google.registry.rdap.RdapObjectClasses.ReplyPayloadBase;
 import java.net.URI;
 import java.util.Optional;
