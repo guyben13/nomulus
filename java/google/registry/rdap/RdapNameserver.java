@@ -126,11 +126,10 @@ final class RdapNameserver extends RdapNamedObjectBase {
             .contains(StatusValue.PENDING_TRANSFER)) {
       statuses.add(StatusValue.PENDING_TRANSFER);
     }
-    return
-            RdapJsonFormatter.makeStatusValueList(
-                statuses.build(),
-                false, // isRedacted
-                hostResource.getDeletionTime().isBefore(rdapJsonFormatter.getRequestTime()));
+    return RdapJsonFormatter.makeStatusValueList(
+        statuses.build(),
+        false, // isRedacted
+        hostResource.getDeletionTime().isBefore(rdapJsonFormatter.getRequestTime()));
   }
 
   /**
