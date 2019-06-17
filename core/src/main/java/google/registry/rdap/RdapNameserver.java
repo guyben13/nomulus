@@ -25,7 +25,6 @@ import com.google.common.net.InetAddresses;
 import com.googlecode.objectify.Key;
 import google.registry.model.eppcommon.StatusValue;
 import google.registry.model.host.HostResource;
-import google.registry.model.registrar.Registrar;
 import google.registry.rdap.AbstractJsonableObject.RestrictJsonNames;
 import google.registry.rdap.RdapDataStructures.Event;
 import google.registry.rdap.RdapDataStructures.EventAction;
@@ -202,10 +201,9 @@ final class RdapNameserver extends RdapNamedObjectBase {
     if (outputDataType != OutputDataType.FULL) {
       return Optional.empty();
     }
-    Registrar registrar =
-        Registrar.loadRequiredRegistrarCached(hostResource.getPersistedCurrentSponsorClientId());
     return Optional.of(
-        rdapJsonFormatter.createRdapRegistrarEntity(registrar, OutputDataType.INTERNAL));
+        rdapJsonFormatter.createRdapRegistrarEntity(
+            hostResource.getPersistedCurrentSponsorClientId(), OutputDataType.INTERNAL));
   }
 
   /**
