@@ -32,7 +32,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Streams;
 import com.google.common.flogger.FluentLogger;
-import com.google.common.net.InetAddresses;
 import com.google.gson.JsonArray;
 import com.googlecode.objectify.Key;
 import google.registry.config.RegistryConfig.Config;
@@ -60,16 +59,12 @@ import google.registry.rdap.RdapDataStructures.RdapStatus;
 import google.registry.rdap.RdapObjectClasses.RdapContactEntity;
 import google.registry.rdap.RdapObjectClasses.RdapDomain;
 import google.registry.rdap.RdapObjectClasses.RdapEntity;
-import google.registry.rdap.RdapObjectClasses.RdapNameserver;
 import google.registry.rdap.RdapObjectClasses.RdapRegistrarEntity;
 import google.registry.rdap.RdapObjectClasses.SecureDns;
 import google.registry.rdap.RdapObjectClasses.Vcard;
 import google.registry.rdap.RdapObjectClasses.VcardArray;
 import google.registry.request.FullServletPath;
 import google.registry.util.Clock;
-import java.net.Inet4Address;
-import java.net.Inet6Address;
-import java.net.InetAddress;
 import java.net.URI;
 import java.nio.file.Paths;
 import java.util.HashMap;
@@ -398,78 +393,7 @@ public class RdapJsonFormatter {
    * @param outputDataType whether to generate full or summary data
    */
   RdapNameserver createRdapNameserver(HostResource hostResource, OutputDataType outputDataType) {
-    RdapNameserver.Builder builder = RdapNameserver.builder();
-    builder
-        .linksBuilder()
-        .add(makeSelfLink("nameserver", hostResource.getFullyQualifiedHostName()));
-    if (outputDataType != OutputDataType.FULL) {
-      builder.remarksBuilder().add(RdapIcannStandardInformation.SUMMARY_DATA_REMARK);
-    }
-
-    // We need the ldhName: RDAP Response Profile 2.9.1, 4.1
-    builder.setLdhName(hostResource.getFullyQualifiedHostName());
-    // Handle is optional, but if given it MUST be the ROID.
-    // We will set it always as it's important as a "self link"
-    builder.setHandle(hostResource.getRepoId());
-
-    // Status is optional for internal Nameservers - RDAP Response Profile 2.9.2
-    // It isn't mentioned at all anywhere else. So we can just not put it at all?
-    //
-    // To be safe, we'll put it on the "FULL" version anyway
-    if (outputDataType == OutputDataType.FULL) {
-      ImmutableSet.Builder<StatusValue> statuses = new ImmutableSet.Builder<>();
-      statuses.addAll(hostResource.getStatusValues());
-      if (isLinked(Key.create(hostResource), getRequestTime())) {
-        statuses.add(StatusValue.LINKED);
-      }
-      if (hostResource.isSubordinate()
-          && ofy()
-              .load()
-              .key(hostResource.getSuperordinateDomain())
-              .now()
-              .cloneProjectedAtTime(getRequestTime())
-              .getStatusValues()
-              .contains(StatusValue.PENDING_TRANSFER)) {
-        statuses.add(StatusValue.PENDING_TRANSFER);
-      }
-      builder
-          .statusBuilder()
-          .addAll(
-              makeStatusValueList(
-                  statuses.build(),
-                  false, // isRedacted
-                  hostResource.getDeletionTime().isBefore(getRequestTime())));
-    }
-
-    // For query responses - we MUST have all the ip addresses: RDAP Response Profile 4.2.
-    //
-    // However, it is optional for internal responses: RDAP Response Profile 2.9.2
-    if (outputDataType != OutputDataType.INTERNAL) {
-      for (InetAddress inetAddress : hostResource.getInetAddresses()) {
-        if (inetAddress instanceof Inet4Address) {
-          builder.ipv4Builder().add(InetAddresses.toAddrString(inetAddress));
-        } else if (inetAddress instanceof Inet6Address) {
-          builder.ipv6Builder().add(InetAddresses.toAddrString(inetAddress));
-        }
-      }
-    }
-
-    // RDAP Response Profile 4.3 - Registrar member is optional, so we only set it for FULL
-    if (outputDataType == OutputDataType.FULL) {
-      Registrar registrar =
-          Registrar.loadRequiredRegistrarCached(hostResource.getPersistedCurrentSponsorClientId());
-      builder.entitiesBuilder().add(createRdapRegistrarEntity(registrar, OutputDataType.INTERNAL));
-    }
-    if (outputDataType != OutputDataType.INTERNAL) {
-      // Rdap Response Profile 4.4, must have "last update of RDAP database" response. But this is
-      // only for direct query responses and not for internal objects.
-      builder.setLastUpdateOfRdapDatabaseEvent(
-          Event.builder()
-              .setEventAction(EventAction.LAST_UPDATE_OF_RDAP_DATABASE)
-              .setEventDate(getRequestTime())
-              .build());
-    }
-    return builder.build();
+    return new RdapNameserver(hostResource, outputDataType, this);
   }
 
   /**
@@ -1031,7 +955,7 @@ public class RdapJsonFormatter {
    * indicate deleted objects, and as directed by the profile, the "removed" status to indicate
    * redacted objects.
    */
-  private static ImmutableSet<RdapStatus> makeStatusValueList(
+  static ImmutableSet<RdapStatus> makeStatusValueList(
       ImmutableSet<StatusValue> statusValues, boolean isRedacted, boolean isDeleted) {
     Stream<RdapStatus> stream =
         statusValues
@@ -1075,7 +999,7 @@ public class RdapJsonFormatter {
    * @see <a href="https://tools.ietf.org/html/rfc7483">RFC 7483: JSON Responses for the
    *     Registration Data Access Protocol (RDAP)</a>
    */
-  private Link makeSelfLink(String type, String name) {
+  Link makeSelfLink(String type, String name) {
     String url = makeRdapServletRelativeUrl(type, name);
     return Link.builder()
         .setValue(url)

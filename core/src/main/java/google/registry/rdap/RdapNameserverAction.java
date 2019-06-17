@@ -24,7 +24,6 @@ import google.registry.flows.EppException;
 import google.registry.model.host.HostResource;
 import google.registry.rdap.RdapJsonFormatter.OutputDataType;
 import google.registry.rdap.RdapMetrics.EndpointType;
-import google.registry.rdap.RdapObjectClasses.RdapNameserver;
 import google.registry.request.Action;
 import google.registry.request.HttpException.BadRequestException;
 import google.registry.request.HttpException.NotFoundException;
