@@ -269,7 +269,7 @@ abstract class AbstractJsonableObject implements Jsonable {
       return builder.build();
     } catch (Throwable e) {
       throw new JsonableException(
-          e, String.format("Error JSONifying %s: %s", this.getClass(), e.getMessage()));
+          e, String.format("Error JSONifying %s:\n%s", this.getClass(), e.getMessage()));
     }
   }
 

@@ -19,7 +19,6 @@ import static google.registry.util.DomainNameUtils.ACE_PREFIX;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -27,21 +26,23 @@ import com.google.gson.JsonPrimitive;
 import google.registry.model.domain.secdns.DelegationSignerData;
 import google.registry.rdap.AbstractJsonableObject.RestrictJsonNames;
 import google.registry.rdap.RdapDataStructures.Event;
-import google.registry.rdap.RdapDataStructures.EventWithoutActor;
+import google.registry.rdap.RdapDataStructures.EventAction;
 import google.registry.rdap.RdapDataStructures.LanguageIdentifier;
-import google.registry.rdap.RdapDataStructures.Link;
 import google.registry.rdap.RdapDataStructures.Notice;
 import google.registry.rdap.RdapDataStructures.ObjectClassName;
 import google.registry.rdap.RdapDataStructures.Port43WhoisServer;
-import google.registry.rdap.RdapDataStructures.PublicId;
 import google.registry.rdap.RdapDataStructures.RdapConformance;
-import google.registry.rdap.RdapDataStructures.RdapStatus;
 import google.registry.rdap.RdapDataStructures.Remark;
+import google.registry.rdap.RdapJsonFormatter.OutputDataType;
 import google.registry.util.Idn;
 import java.util.Optional;
 
 /**
  * Object Classes defined in RFC7483 section 5.
+ *
+ * The RFC mostly defines the fields, making most of them optional. It's later the RDAP Response
+ * Profile (and to a lesser degree, the RDAP Implementation Guide) that tell us what fields we have
+ * to use - and that's done in the {@link RdapJsonFormatter} class.
  */
 final class RdapObjectClasses {
 
@@ -196,14 +197,24 @@ final class RdapObjectClasses {
    * <p>Not part of the spec, but seems convenient.
    */
   private abstract static class RdapObjectBase extends ReplyPayloadBase {
-    @JsonableElement final ObjectClassName objectClassName;
+    private final ObjectClassName objectClassName;
+    protected final OutputDataType outputDataType;
+    protected final RdapJsonFormatter rdapJsonFormatter;
 
-    @JsonableElement abstract Optional<String> handle();
-    @JsonableElement abstract ImmutableList<RdapEntity> entities();
-    @JsonableElement abstract ImmutableSet<RdapStatus> status();
-    @JsonableElement abstract ImmutableList<Remark> remarks();
-    @JsonableElement abstract ImmutableList<Link> links();
-    @JsonableElement abstract ImmutableList<Event> events();
+    RdapObjectBase(
+        BoilerplateType boilerplateType,
+        ObjectClassName objectClassName,
+        OutputDataType outputDataType,
+        RdapJsonFormatter rdapJsonFormatter) {
+      super(boilerplateType);
+      this.objectClassName = objectClassName;
+      this.outputDataType = outputDataType;
+      this.rdapJsonFormatter = rdapJsonFormatter;
+    }
+
+    @JsonableElement ObjectClassName objectClassName() {
+      return objectClassName;
+    }
 
     /**
      * Required event for all response objects, but not for internal objects.
@@ -215,7 +226,30 @@ final class RdapObjectClasses {
      * <p>RDAP Response Profile 2.3.1.3, 3.3, 4.4
      */
     @JsonableElement("events[]")
-    abstract Optional<Event> lastUpdateOfRdapDatabaseEvent();
+    Optional<Event> zLastUpdateOfRdapDatabaseEvent(){
+      if (outputDataType == OutputDataType.INTERNAL) {
+        return Optional.empty();
+      }
+      return Optional.of(
+          Event.builder()
+              .setEventAction(EventAction.LAST_UPDATE_OF_RDAP_DATABASE)
+              .setEventDate(rdapJsonFormatter.getRequestTime())
+              .build());
+    }
+
+    /**
+     * For non-FULL objects, add a remark saying this is only partial data.
+     *
+     * Not required by the spec, but convenient for clarity (since our differences between "FULL"
+     * and "SUMMARY" aren't defined in the spec either)
+     */
+    @JsonableElement("remarks[]")
+    Optional<Remark> summaryRemark() {
+      if (outputDataType == OutputDataType.FULL) {
+        return Optional.empty();
+      }
+      return Optional.of(RdapIcannStandardInformation.SUMMARY_DATA_REMARK);
+    }
 
     /**
      * WHOIS server displayed in RDAP query responses.
@@ -227,23 +261,6 @@ final class RdapObjectClasses {
     @JsonableElement
     Optional<Port43WhoisServer> port43() {
       return Optional.empty();
-    }
-
-    RdapObjectBase(BoilerplateType boilerplateType, ObjectClassName objectClassName) {
-      super(boilerplateType);
-      this.objectClassName = objectClassName;
-    }
-
-
-    abstract static class Builder<B extends Builder<?>> {
-      abstract B setHandle(String handle);
-      abstract ImmutableList.Builder<RdapEntity> entitiesBuilder();
-      abstract ImmutableSet.Builder<RdapStatus> statusBuilder();
-      abstract ImmutableList.Builder<Remark> remarksBuilder();
-      abstract ImmutableList.Builder<Link> linksBuilder();
-      abstract ImmutableList.Builder<Event> eventsBuilder();
-
-      abstract B setLastUpdateOfRdapDatabaseEvent(Event event);
     }
   }
 
@@ -286,61 +303,8 @@ final class RdapObjectClasses {
       }
     }
 
-    RdapEntity() {
-      super(BoilerplateType.ENTITY, ObjectClassName.ENTITY);
-    }
-
-    @JsonableElement abstract Optional<VcardArray> vcardArray();
-    @JsonableElement abstract ImmutableSet<Role> roles();
-    @JsonableElement abstract ImmutableList<EventWithoutActor> asEventActor();
-
-    private abstract static class Builder<B extends Builder<B>> extends RdapObjectBase.Builder<B> {
-      abstract B setVcardArray(VcardArray vcardArray);
-
-      abstract ImmutableSet.Builder<Role> rolesBuilder();
-
-      abstract ImmutableList.Builder<EventWithoutActor> asEventActorBuilder();
-    }
-  }
-
-  /**
-   * Registrar version of the Entity Object Class defined in 5.1 of RFC7483.
-   *
-   * <p>Entities are used both for Contacts and for Registrars. We will create different subobjects
-   * for each one for type safety.
-   */
-  @AutoValue
-  abstract static class RdapRegistrarEntity extends RdapEntity {
-
-    @JsonableElement abstract ImmutableList<PublicId> publicIds();
-
-    static Builder builder() {
-      return new AutoValue_RdapObjectClasses_RdapRegistrarEntity.Builder();
-    }
-
-    @AutoValue.Builder
-    abstract static class Builder extends RdapEntity.Builder<Builder> {
-      abstract ImmutableList.Builder<PublicId> publicIdsBuilder();
-      abstract RdapRegistrarEntity build();
-    }
-  }
-
-  /**
-   * Contact version of the Entity Object Class defined in 5.1 of RFC7483.
-   *
-   * <p>Entities are used both for Contacts and for Registrars. We will create different subobjects
-   * for each one for type safety.
-   */
-  @AutoValue
-  abstract static class RdapContactEntity extends RdapEntity {
-
-    static Builder builder() {
-      return new AutoValue_RdapObjectClasses_RdapContactEntity.Builder();
-    }
-
-    @AutoValue.Builder
-    abstract static class Builder extends RdapEntity.Builder<Builder> {
-      abstract RdapContactEntity build();
+    RdapEntity(OutputDataType outputDataType, RdapJsonFormatter rdapJsonFormatter) {
+      super(BoilerplateType.ENTITY, ObjectClassName.ENTITY, outputDataType, rdapJsonFormatter);
     }
   }
 
@@ -377,12 +341,12 @@ final class RdapObjectClasses {
           || fullyQualifiedName.contains("." + ACE_PREFIX);
     }
 
-    abstract static class Builder<B extends Builder<?>> extends RdapObjectBase.Builder<B> {
-      abstract B setLdhName(String ldhName);
-    }
-
-    RdapNamedObjectBase(BoilerplateType boilerplateType, ObjectClassName objectClassName) {
-      super(boilerplateType, objectClassName);
+    RdapNamedObjectBase(
+        BoilerplateType boilerplateType,
+        ObjectClassName objectClassName,
+        OutputDataType outputDataType,
+        RdapJsonFormatter rdapJsonFormatter) {
+      super(boilerplateType, objectClassName, outputDataType, rdapJsonFormatter);
     }
   }
 
@@ -457,38 +421,6 @@ final class RdapObjectClasses {
       }
 
       abstract SecureDns build();
-    }
-  }
-
-  /**
-   * The Domain Object Class defined in 5.3 of RFC7483.
-   *
-   * We're missing the "variants", "secureDNS", "network" fields
-   */
-  @RestrictJsonNames("domainSearchResults[]")
-  @AutoValue
-  abstract static class RdapDomain extends RdapNamedObjectBase {
-
-    @JsonableElement abstract ImmutableList<RdapNameserver> nameservers();
-
-    @JsonableElement("secureDNS")
-    abstract Optional<SecureDns> secureDns();
-
-    RdapDomain() {
-      super(BoilerplateType.DOMAIN, ObjectClassName.DOMAIN);
-    }
-
-    static Builder builder() {
-      return new AutoValue_RdapObjectClasses_RdapDomain.Builder();
-    }
-
-    @AutoValue.Builder
-    abstract static class Builder extends RdapNamedObjectBase.Builder<Builder> {
-      abstract ImmutableList.Builder<RdapNameserver> nameserversBuilder();
-
-      abstract Builder setSecureDns(SecureDns secureDns);
-
-      abstract RdapDomain build();
     }
   }
 

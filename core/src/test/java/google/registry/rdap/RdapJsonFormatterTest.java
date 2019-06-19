@@ -477,20 +477,20 @@ public class RdapJsonFormatterTest {
 
   @Test
   public void testDomain_full() {
-    assertThat(rdapJsonFormatter.createRdapDomain(domainBaseFull, OutputDataType.FULL).toJson())
+    assertThat(rdapJsonFormatter.createRdapDomainFull(domainBaseFull).toJson())
         .isEqualTo(loadJson("rdapjson_domain_full.json"));
   }
 
   @Test
   public void testDomain_summary() {
-    assertThat(rdapJsonFormatter.createRdapDomain(domainBaseFull, OutputDataType.SUMMARY).toJson())
+    assertThat(rdapJsonFormatter.createRdapDomainSummary(domainBaseFull).toJson())
         .isEqualTo(loadJson("rdapjson_domain_summary.json"));
   }
 
   @Test
   public void testDomain_logged_out() {
     rdapJsonFormatter.rdapAuthorization = RdapAuthorization.PUBLIC_AUTHORIZATION;
-    assertThat(rdapJsonFormatter.createRdapDomain(domainBaseFull, OutputDataType.FULL).toJson())
+    assertThat(rdapJsonFormatter.createRdapDomainFull(domainBaseFull).toJson())
         .isEqualTo(loadJson("rdapjson_domain_logged_out.json"));
   }
 
@@ -498,7 +498,7 @@ public class RdapJsonFormatterTest {
   public void testDomain_noNameserversNoTransfersMultipleRoleContact() {
     assertThat(
             rdapJsonFormatter
-                .createRdapDomain(domainBaseNoNameserversNoTransfers, OutputDataType.FULL)
+                .createRdapDomainFull(domainBaseNoNameserversNoTransfers)
                 .toJson())
         .isEqualTo(loadJson("rdapjson_domain_no_nameservers.json"));
   }

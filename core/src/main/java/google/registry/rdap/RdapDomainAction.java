@@ -22,9 +22,7 @@ import static google.registry.util.DateTimeUtils.START_OF_TIME;
 
 import google.registry.flows.EppException;
 import google.registry.model.domain.DomainBase;
-import google.registry.rdap.RdapJsonFormatter.OutputDataType;
 import google.registry.rdap.RdapMetrics.EndpointType;
-import google.registry.rdap.RdapObjectClasses.RdapDomain;
 import google.registry.request.Action;
 import google.registry.request.HttpException.BadRequestException;
 import google.registry.request.HttpException.NotFoundException;
@@ -72,6 +70,6 @@ public class RdapDomainAction extends RdapActionBase {
       // exists but we don't want to show it to you", because we DON'T wish to say that.
       throw new NotFoundException(pathSearchString + " not found");
     }
-    return rdapJsonFormatter.createRdapDomain(domainBase.get(), OutputDataType.FULL);
+    return rdapJsonFormatter.createRdapDomainFull(domainBase.get());
   }
 }

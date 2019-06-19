@@ -32,7 +32,6 @@ import com.googlecode.objectify.Key;
 import com.googlecode.objectify.cmd.Query;
 import google.registry.model.domain.DomainBase;
 import google.registry.model.host.HostResource;
-import google.registry.rdap.RdapJsonFormatter.OutputDataType;
 import google.registry.rdap.RdapMetrics.EndpointType;
 import google.registry.rdap.RdapMetrics.SearchType;
 import google.registry.rdap.RdapMetrics.WildcardType;
@@ -480,8 +479,6 @@ public class RdapDomainSearchAction extends RdapSearchActionBase {
       IncompletenessWarningType incompletenessWarningType,
       Optional<Long> numDomainsRetrieved) {
     numDomainsRetrieved.ifPresent(metricInformationBuilder::setNumDomainsRetrieved);
-    OutputDataType outputDataType =
-        (domains.size() > 1) ? OutputDataType.SUMMARY : OutputDataType.FULL;
     DomainSearchResponse.Builder builder =
         DomainSearchResponse.builder()
             .setIncompletenessWarningType(incompletenessWarningType);
@@ -490,7 +487,10 @@ public class RdapDomainSearchAction extends RdapSearchActionBase {
       newCursor = Optional.of(domain.getFullyQualifiedDomainName());
       builder
           .domainSearchResultsBuilder()
-          .add(rdapJsonFormatter.createRdapDomain(domain, outputDataType));
+          .add(
+              (domains.size() > 1)
+                  ? rdapJsonFormatter.createRdapDomainSummary(domain)
+                  : rdapJsonFormatter.createRdapDomainFull(domain));
     }
     if (rdapResultSetMaxSize < domains.size()) {
       builder.setNextPageUri(createNavigationUri(newCursor.get()));

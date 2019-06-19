@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableMap;
 import google.registry.rdap.RdapDataStructures.Link;
 import google.registry.rdap.RdapDataStructures.Notice;
 import google.registry.rdap.RdapObjectClasses.BoilerplateType;
-import google.registry.rdap.RdapObjectClasses.RdapDomain;
 import google.registry.rdap.RdapObjectClasses.RdapEntity;
 import google.registry.rdap.RdapObjectClasses.ReplyPayloadBase;
 import java.net.URI;

@@ -18,25 +18,20 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static google.registry.model.EppResourceUtils.isLinked;
 import static google.registry.model.ofy.ObjectifyService.ofy;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.common.net.InetAddresses;
 import com.googlecode.objectify.Key;
 import google.registry.model.eppcommon.StatusValue;
 import google.registry.model.host.HostResource;
+import google.registry.model.registrar.Registrar;
 import google.registry.rdap.AbstractJsonableObject.RestrictJsonNames;
-import google.registry.rdap.RdapDataStructures.Event;
-import google.registry.rdap.RdapDataStructures.EventAction;
 import google.registry.rdap.RdapDataStructures.Link;
 import google.registry.rdap.RdapDataStructures.ObjectClassName;
 import google.registry.rdap.RdapDataStructures.RdapStatus;
-import google.registry.rdap.RdapDataStructures.Remark;
 import google.registry.rdap.RdapJsonFormatter.OutputDataType;
 import google.registry.rdap.RdapObjectClasses.BoilerplateType;
-import google.registry.rdap.RdapObjectClasses.RdapEntity;
 import google.registry.rdap.RdapObjectClasses.RdapNamedObjectBase;
-import google.registry.rdap.RdapObjectClasses.RdapRegistrarEntity;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.util.Optional;
@@ -48,17 +43,14 @@ import java.util.Optional;
 final class RdapNameserver extends RdapNamedObjectBase {
 
   private final HostResource hostResource;
-  private final OutputDataType outputDataType;
-  private final RdapJsonFormatter rdapJsonFormatter;
 
   RdapNameserver(
       HostResource hostResource,
       OutputDataType outputDataType,
       RdapJsonFormatter rdapJsonFormatter) {
-    super(BoilerplateType.NAMESERVER, ObjectClassName.NAMESERVER);
+    super(
+        BoilerplateType.NAMESERVER, ObjectClassName.NAMESERVER, outputDataType, rdapJsonFormatter);
     this.hostResource = hostResource;
-    this.outputDataType = outputDataType;
-    this.rdapJsonFormatter = rdapJsonFormatter;
   }
 
   /**
@@ -75,26 +67,16 @@ final class RdapNameserver extends RdapNamedObjectBase {
    * Handle is optional, but if given it MUST be the ROID.
    *
    * <p>We will set it always as it's important as a "self link".
-   *
-   * TODO(guyben): make non-optional (and remove override...)
    */
-  @Override
-  Optional<String> handle() {
-    return Optional.of(hostResource.getRepoId());
+  @JsonableElement
+  String handle() {
+    return hostResource.getRepoId();
   }
 
   /** Not required by the spec, but we like it. */
   @JsonableElement("links[]")
   Link selfLink() {
     return rdapJsonFormatter.makeSelfLink("nameserver", hostResource.getFullyQualifiedHostName());
-  }
-
-  /**
-   * TODO(guyben): remove
-   */
-  @Override
-  ImmutableList<Link> links() {
-    return ImmutableList.of();
   }
 
   /**
@@ -106,8 +88,7 @@ final class RdapNameserver extends RdapNamedObjectBase {
    *
    * TODO(guyben): keep only in RdapNameserverFull
    */
-  @Override
-  ImmutableSet<RdapStatus> status() {
+  @JsonableElement ImmutableSet<RdapStatus> status() {
     if (outputDataType != OutputDataType.FULL) {
       return ImmutableSet.of();
     }
@@ -171,55 +152,15 @@ final class RdapNameserver extends RdapNamedObjectBase {
     }
   }
 
-  @Override
-  ImmutableList<Remark> remarks() {
-    if (outputDataType == OutputDataType.FULL) {
-      return ImmutableList.of();
-    }
-    return ImmutableList.of(RdapIcannStandardInformation.SUMMARY_DATA_REMARK);
-  }
-
-  /**
-   * TODO(guyben): remove
-   */
-  @Override
-  ImmutableList<RdapEntity> entities() {
-    return ImmutableList.of();
-  }
-
-  /**
-   * TODO(guyben): remove
-   */
-  @Override
-  ImmutableList<Event> events() {
-    return ImmutableList.of();
-  }
-
   /** RDAP Response Profile 4.3 - Registrar member is optional, so we only set it for FULL. */
   @JsonableElement("entities[]")
   Optional<RdapRegistrarEntity> registrar() {
     if (outputDataType != OutputDataType.FULL) {
       return Optional.empty();
     }
+    Registrar registrar = Registrar.loadRequiredRegistrarCached(hostResource.getPersistedCurrentSponsorClientId());
     return Optional.of(
         rdapJsonFormatter.createRdapRegistrarEntity(
-            hostResource.getPersistedCurrentSponsorClientId(), OutputDataType.INTERNAL));
-  }
-
-  /**
-   * Rdap Response Profile 4.4, must have "last update of RDAP database" response.
-   *
-   * <p>But this is only for direct query responses and not for internal objects.
-   */
-  @Override
-  Optional<Event> lastUpdateOfRdapDatabaseEvent() {
-    if (outputDataType == OutputDataType.INTERNAL) {
-      return Optional.empty();
-    }
-    return Optional.of(
-        Event.builder()
-            .setEventAction(EventAction.LAST_UPDATE_OF_RDAP_DATABASE)
-            .setEventDate(rdapJsonFormatter.getRequestTime())
-            .build());
+            registrar, OutputDataType.INTERNAL));
   }
 }
