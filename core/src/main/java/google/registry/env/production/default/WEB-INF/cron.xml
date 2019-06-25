@@ -113,7 +113,7 @@
   </cron>
 
   <cron>
-    <url><![CDATA[/_dr/task/updateRegistrarRdapBaseUrls]]></url>
+    <url><![CDATA[/_dr/task/updateRegistrarRdapBaseUrls?tld=app]]></url>
     <description>
       This job reloads all registrar RDAP base URLs from ICANN.
     </description>
